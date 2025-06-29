@@ -12,7 +12,7 @@ app.listen(port, () => {
   console.log(`✅ Web server running on port ${port}`);
 });
 
-// ✅ Yaha config object wrap kiya gaya hai
+// 🔧 Bot config (tumhari JSON wali settings yahi paste kari gayi hai)
 const config = {
   "bot-account": {
     "username": "BETA",
@@ -48,7 +48,6 @@ const config = {
       "enabled": true,
       "repeat": true,
       "repeat-delay": 60,
-
       "messages": [
         "MY FATHER NAME IS COOLBOY",
         "COOL IS THE BEST PLAYER OF MINECRAFT!",
@@ -62,7 +61,6 @@ const config = {
   }
 };
 
-// ✅ Bot code
 let bot;
 
 function createBot() {
@@ -81,7 +79,7 @@ function createBot() {
   bot.on('spawn', () => {
     console.log('🎮 Bot spawned in the server');
 
-    // Anti-AFK
+    // ✅ Anti-AFK sneak system
     if (config.utils["anti-afk"].enabled) {
       setInterval(() => {
         if (config.utils["anti-afk"].sneak) {
@@ -91,7 +89,7 @@ function createBot() {
       }, 60000);
     }
 
-    // Chat Messages
+    // ✅ Chat message loop
     if (config.utils["chat-messages"].enabled) {
       let index = 0;
       setInterval(() => {
@@ -117,4 +115,14 @@ function createBot() {
   });
 }
 
+// ✅ Freeze protection: every 5 minutes check if bot is stuck
+setInterval(() => {
+  if (!bot || !bot.player) {
+    console.log("🛑 Bot freeze/stuck detected. Reconnecting...");
+    try { bot.quit(); } catch (e) {}
+    createBot();
+  }
+}, 5 * 60 * 1000); // 5 minute interval
+
 createBot();
+
