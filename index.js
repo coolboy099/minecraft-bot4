@@ -15,7 +15,7 @@ function createBot() {
   bot = mineflayer.createBot({
     host: 'dttyagi-lol10110.aternos.me',
     port: 40234,
-    username: 'BETA3',
+    username: 'BETA12',
     version: '1.12.1'
   });
 
