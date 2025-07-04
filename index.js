@@ -1,85 +1,89 @@
 const mineflayer = require('mineflayer');
 const express = require('express');
-const fetch = require('node-fetch');
-const app = express();
-const PORT = 3000;
+const axios = require('axios');
 
-let bot;
-const username = 'BETA12'; // Apna bot username yahan daalein
-const serverHost = 'dttyagi-lol10110.aternos.me';
-const serverPort = 40234;
-const mcVersion = '1.21.6'; // Apne server ki correct version yahan daalein
+const SERVER_HOST = 'dttyagi-lol10110.aternos.me';
+const SERVER_PORT = 40234;
+const CHECK_INTERVAL = 2 * 60 * 1000; // 2 minutes
+const BOT_SWITCH_INTERVAL = 4 * 60 * 60 * 1000; // 4 hours
+const BOT_USERNAMES = ['BETA3', 'BETA12', 'BETA5', 'BETA9']; // jitne chaho daal lo
+let botIndex = 0;
+let bot = null;
 
-// Function to create bot
-function createBot() {
+function createBot(username) {
   bot = mineflayer.createBot({
-    host: serverHost,
-    port: serverPort,
+    host: SERVER_HOST,
+    port: SERVER_PORT,
     username: username,
-    version: mcVersion,
+    version: '1.21.6'
   });
 
   bot.on('login', () => {
-    console.log(`✅ ${username} joined the server!`);
-    bot.chat('BETA12 is online!');
-    startMovementLoop();
+    console.log(`✅ Bot ${username} logged in.`);
+    setTimeout(() => {
+      if (bot && bot.chat) bot.chat('Bot ready to help!');
+    }, 3000);
+  });
+
+  bot.on('spawn', () => {
+    setInterval(() => {
+      if (bot && bot.isAlive) {
+        bot.setControlState('forward', true);
+        setTimeout(() => bot.setControlState('forward', false), 1000);
+        bot.setControlState('jump', true);
+        setTimeout(() => bot.setControlState('jump', false), 500);
+        bot.setControlState('sneak', true);
+        setTimeout(() => bot.setControlState('sneak', false), 1000);
+      }
+    }, 10000);
   });
 
   bot.on('end', () => {
-    console.log('🔁 Bot disconnected. Reconnecting in 10s...');
-    setTimeout(createBot, 10000);
+    console.log('❌ Bot disconnected.');
   });
 
-  bot.on('error', (err) => {
+  bot.on('error', err => {
     console.log('❌ Bot Error:', err.message);
   });
 }
 
-// Function to simulate movement
-function startMovementLoop() {
-  const actions = ['forward', 'back', 'left', 'right', 'jump'];
-  setInterval(() => {
-    const action = actions[Math.floor(Math.random() * actions.length)];
-    if (action === 'jump') {
-      bot.setControlState('jump', true);
-      setTimeout(() => bot.setControlState('jump', false), 500);
+async function checkServerOnline() {
+  try {
+    const res = await axios.get(`https://api.mcstatus.io/v2/status/java/${SERVER_HOST}:${SERVER_PORT}`);
+    const online = res.data.online;
+    if (online && !bot) {
+      console.log('✅ Server online, joining bot...');
+      createBot(BOT_USERNAMES[botIndex]);
+    } else if (!online && bot) {
+      console.log('🛑 Server offline, disconnecting bot...');
+      bot.quit();
+      bot = null;
     } else {
-      bot.setControlState(action, true);
-      setTimeout(() => bot.setControlState(action, false), 1000);
+      console.log(`ℹ️ Server is ${online ? 'online' : 'offline'}, bot state ok.`);
     }
-    bot.chat('I am alive and moving!');
-  }, 60000); // 1 minute delay between actions
+  } catch (err) {
+    console.log('⚠️ Error checking server status:', err.message);
+  }
 }
 
-// Web server for uptime monitoring
-app.get('/', (req, res) => {
-  res.send('🌍 Bot is alive!');
-});
-
-app.listen(PORT, () => {
-  console.log(`🌍 Web server running on port ${PORT}`);
-});
-
-// Check server online status every 2 minutes
-setInterval(async () => {
-  const url = `https://api.mcstatus.io/v2/status/java/${serverHost}:${serverPort}`;
-  try {
-    const response = await fetch(url);
-    const data = await response.json();
-    if (data.online) {
-      console.log('🟢 Server is online.');
-      if (!bot || bot.player === undefined) {
-        console.log('🔁 Reconnecting bot...');
-        createBot();
-      }
-    } else {
-      console.log('🔴 Server is offline.');
-    }
-  } catch (error) {
-    console.log('⚠️ Server status check failed:', error.message);
+// Switch bot every 4 hours
+setInterval(() => {
+  if (bot) {
+    console.log('🔁 Switching bot...');
+    bot.quit();
+    bot = null;
+    botIndex = (botIndex + 1) % BOT_USERNAMES.length;
+    createBot(BOT_USERNAMES[botIndex]);
   }
-}, 120000); // 2 min = 120000ms
+}, BOT_SWITCH_INTERVAL);
 
-// Start the bot on app launch
-createBot();
+// Server check loop
+setInterval(checkServerOnline, CHECK_INTERVAL);
+checkServerOnline();
+
+// Uptime server
+const app = express();
+app.get('/', (req, res) => res.send('✅ Bot is running and alive!'));
+app.listen(3000, () => console.log('🌍 Web server running on port 3000'));
+
 
