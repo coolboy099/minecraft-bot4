@@ -26,7 +26,7 @@ function createBot() {
   bot = mineflayer.createBot({
     host: SERVER_IP,
     port: SERVER_PORT,
-    username: 'BETA12',
+    username: 'BETA 13',
     version: VERSION
   });
 
