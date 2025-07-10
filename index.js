@@ -1,89 +1,111 @@
+// 📦 Required Libraries
 const mineflayer = require('mineflayer');
-const express = require('express');
 const http = require('http');
-const fetch = require('node-fetch');
+const util = require('util');
+const dns = require('dns');
 
+// 🌐 Server Info
 const SERVER_IP = 'dttyagi-lol10110.aternos.me';
 const SERVER_PORT = 40234;
 const VERSION = '1.21.6';
+const CHECK_INTERVAL = 2 * 60 * 1000; // 2 minutes
+
+// 🤖 Bot Usernames
+const usernames = ['BETA12', 'BETA13', 'BETA14', 'BETA15'];
+let currentBotIndex = 0;
 let bot = null;
 
-const app = express();
-const server = http.createServer(app);
-const PORT = 3000;
+// 🌍 Web server for uptime
+http.createServer((req, res) => {
+  res.writeHead(200, { 'Content-Type': 'text/plain' });
+  res.end('Bot is alive');
+}).listen(3000);
 
-app.get('/', (req, res) => {
-  res.send('🌍 Web server is running!');
-});
-
-server.listen(PORT, () => {
-  console.log(`🌍 Web server running on port ${PORT}`);
-});
-
+// 🔁 Create bot
 function createBot() {
-  console.log('✅ Server online, joining bot...');
+  if (currentBotIndex >= usernames.length) {
+    console.log('🚫 No more usernames left.');
+    return;
+  }
+
+  const username = usernames[currentBotIndex];
+  console.log(`🟢 Trying bot: ${username}`);
 
   bot = mineflayer.createBot({
     host: SERVER_IP,
     port: SERVER_PORT,
-    username: 'BETA13',
+    username,
     version: VERSION
   });
 
   bot.on('login', () => {
-    console.log('🤖 Bot joined the server!');
-    bot.chat('hello!');
-  });
-
-  bot.on('spawn', () => {
-    setInterval(() => {
-      bot.setControlState('forward', true);
-      setTimeout(() => {
-        bot.setControlState('forward', false);
-        bot.setControlState('jump', true);
-        setTimeout(() => {
-          bot.setControlState('jump', false);
-          bot.setControlState('sneak', true);
-          setTimeout(() => {
-            bot.setControlState('sneak', false);
-          }, 1000);
-        }, 500);
-      }, 2000);
-    }, 10000); // 10 sec loop
+    console.log(`✅ Bot ${username} logged in.`);
+    startMovement();
   });
 
   bot.on('end', () => {
-    console.log('❌ Bot disconnected.');
+    console.log('🔁 Bot disconnected. Retrying in 5 seconds...');
+    setTimeout(() => {
+      currentBotIndex++;
+      createBot();
+    }, 5000);
   });
 
   bot.on('error', (err) => {
-    console.log('❌ Bot Error:', err);
+    console.log('❌ Bot error:', err.message);
   });
 }
 
-async function isServerOnline() {
-  try {
-    const response = await fetch(`https://api.mcstatus.io/v2/status/java/${SERVER_IP}:${SERVER_PORT}`);
-    const data = await response.json();
-    return data?.online || false;
-  } catch {
-    return false;
-  }
+// 🕹️ Basic movement
+function startMovement() {
+  if (!bot) return;
+  const movements = ['forward', 'back', 'left', 'right'];
+  let moveIndex = 0;
+
+  setInterval(() => {
+    bot.setControlState(movements[moveIndex % movements.length], true);
+    setTimeout(() => bot.setControlState(movements[moveIndex % movements.length], false), 1000);
+    moveIndex++;
+  }, 4000);
+
+  setInterval(() => {
+    bot.setControlState('jump', true);
+    setTimeout(() => bot.setControlState('jump', false), 500);
+  }, 7000);
+
+  setInterval(() => {
+    bot.setControlState('sneak', true);
+    setTimeout(() => bot.setControlState('sneak', false), 1000);
+  }, 10000);
 }
 
-async function checkAndStartBot() {
-  const online = await isServerOnline();
-  if (online) {
-    if (!bot || bot?.player === undefined) {
+// 🌐 Check if server is online
+function checkServerOnline(callback) {
+  dns.lookup(SERVER_IP, (err) => {
+    callback(!err);
+  });
+}
+
+// ⏲️ Periodic check
+setInterval(() => {
+  checkServerOnline((online) => {
+    if (online && (!bot || !bot.player)) {
+      console.log('✅ Server online, joining bot...');
       createBot();
+    } else if (!online) {
+      console.log('🔴 Server is offline');
     } else {
       console.log('ℹ️ Server is online, bot state ok.');
     }
-  } else {
-    console.log('⚠️ Server offline. Skipping bot join.');
-  }
-}
+  });
+}, CHECK_INTERVAL);
 
-// Run check every 2 minutes
-checkAndStartBot();
-setInterval(checkAndStartBot, 2 * 60 * 1000);
+// 🚀 Initial check
+checkServerOnline((online) => {
+  if (online) {
+    console.log('✅ Server online, joining bot...');
+    createBot();
+  } else {
+    console.log('🔴 Server offline at startup');
+  }
+});
