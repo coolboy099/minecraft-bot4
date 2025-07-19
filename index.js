@@ -1,121 +1,58 @@
 const mineflayer = require('mineflayer');
-const { pathfinder, Movements, goals } = require('mineflayer-pathfinder');
-const ping = require('ping');
+const { pathfinder } = require('mineflayer-pathfinder');
+const { Vec3 } = require('vec3');
 const http = require('http');
 
-const SERVER_HOST = 'dttyagi-lol10110.aternos.me';
+const SERVER_IP = "dttyagi-lol10110.aternos.me";
 const SERVER_PORT = 40234;
 
-const START_BOT = 3;
-const END_BOT = 20;
-let currentBotNumber = START_BOT;
-let currentBot = null;
+let bot;
+let botNumber = 12;
 
-const CHECK_INTERVAL = 2 * 60 * 1000;
-const SWITCH_INTERVAL = 4 * 60 * 60 * 1000;
-
-function createBot(username) {
-  const bot = mineflayer.createBot({
-    host: SERVER_HOST,
+function createBot() {
+  const username = `BETA${botNumber}`;
+  bot = mineflayer.createBot({
+    host: SERVER_IP,
     port: SERVER_PORT,
-    username,
-    version: false,
-    auth: 'offline'
+    username: username,
+    version: "1.21.6"
   });
 
   bot.loadPlugin(pathfinder);
 
   bot.once('spawn', () => {
-    console.log(`✅ Bot ${username} spawned.`);
-    
-    // Auto register/login system
-    const password = '123456'; // Change if needed
-    let attempts = 0;
-    const maxAttempts = 5;
+    console.log(`✅ ${username} joined the server!`);
 
-    const tryAuth = () => {
-      if (!bot.chat) return;
-      if (attempts >= maxAttempts) return;
+    // Auto /register or /login
+    setTimeout(() => {
+      bot.chat('/register 123456 123456');
+      bot.chat('/login 123456');
+    }, 5000);
 
-      attempts++;
-      bot.chat(`/register ${password} ${password}`);
-      bot.chat(`/login ${password}`);
-    };
-
-    const authInterval = setInterval(() => {
-      tryAuth();
-      if (attempts >= maxAttempts) clearInterval(authInterval);
-    }, 4000);
-
-    // Random Movement
-    const mcData = require('minecraft-data')(bot.version);
-    const defaultMove = new Movements(bot, mcData);
-    bot.pathfinder.setMovements(defaultMove);
-
+    // Random movement loop
     setInterval(() => {
-      if (!bot.entity) return;
-      const pos = bot.entity.position.offset(
-        (Math.random() - 0.5) * 10,
-        0,
-        (Math.random() - 0.5) * 10
-      );
-      bot.pathfinder.setGoal(new goals.GoalBlock(pos.x, pos.y, pos.z));
-      bot.setControlState('sneak', true);
-      if (Math.random() < 0.5) bot.setControlState('jump', true);
-      setTimeout(() => {
-        bot.setControlState('jump', false);
-        bot.setControlState('sneak', false);
-      }, 1000);
+      const x = bot.entity.position.x + (Math.random() * 10 - 5);
+      const z = bot.entity.position.z + (Math.random() * 10 - 5);
+      const y = bot.entity.position.y;
+      bot.pathfinder.setGoal(new mineflayer.pathfinder.goals.GoalBlock(x, y, z));
     }, 10000);
   });
 
-  bot.on('end', () => {
-    console.log(`❌ Bot ${username} disconnected.`);
-    currentBot = null;
-  });
-
   bot.on('error', err => {
-    console.log(`⚠️ Bot error: ${err.message}`);
+    console.log(`❌ Bot Error: ${err.message}`);
   });
 
-  return bot;
-}
-
-function isServerOnline(callback) {
-  ping.sys.probe(SERVER_HOST, callback);
-}
-
-function tryJoin() {
-  if (currentBot) return;
-  isServerOnline((isAlive) => {
-    if (isAlive) {
-      const username = `BETA${currentBotNumber}`;
-      console.log(`🟢 Trying bot: ${username}`);
-      currentBot = createBot(username);
-    } else {
-      console.log('🔴 Server is offline.');
-    }
+  bot.on('end', () => {
+    console.log("❌ Bot disconnected. Reconnecting in 2 minutes...");
+    setTimeout(createBot, 2 * 60 * 1000);
   });
 }
 
-setInterval(() => {
-  if (currentBot) {
-    console.log(`🔁 Switching bot...`);
-    currentBot.quit();
-    currentBotNumber++;
-    if (currentBotNumber > END_BOT) currentBotNumber = START_BOT;
-    setTimeout(tryJoin, 5000);
-  }
-}, SWITCH_INTERVAL);
+createBot();
 
-setInterval(() => {
-  if (!currentBot) {
-    tryJoin();
-  }
-}, CHECK_INTERVAL);
-
-tryJoin();
-
+// Web server for Render uptime
 http.createServer((req, res) => {
-  res.end('Bot is alive');
+  res.writeHead(200, { 'Content-Type': 'text/plain' });
+  res.end('Bot is running!');
 }).listen(3000);
+
