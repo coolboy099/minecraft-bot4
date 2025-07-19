@@ -1,13 +1,14 @@
 {
   "name": "minecraft-bot",
   "version": "1.0.0",
+  "description": "A Minecraft bot with auto register and login",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
-    "mineflayer": "^4.16.0",
-    "mineflayer-pathfinder": "^1.21.6",
-    "ping": "^0.4.1"
+    "mineflayer": "^4.14.0",
+    "mineflayer-pathfinder": "^1.6.3"
   }
 }
+
