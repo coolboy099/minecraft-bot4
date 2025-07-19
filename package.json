@@ -1,17 +1,18 @@
 {
   "name": "minecraft-bot",
   "version": "1.0.0",
-  "description": "Simple Minecraft bot with auto reconnect and rotation",
+  "description": "Bot with auto reconnect, register/login and random movement",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
     "mineflayer": "^4.17.1",
-    "mineflayer-pathfinder": "^2.5.2",
+    "mineflayer-pathfinder": "^1.20.1",
     "ping": "^0.4.1"
   }
 }
+
 
 
 
