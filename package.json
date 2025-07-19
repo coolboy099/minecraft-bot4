@@ -1,19 +1,13 @@
 {
   "name": "minecraft-bot",
   "version": "1.0.0",
-  "description": "Minecraft bot with auto reconnect and login/register",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
-    "mineflayer": "^4.11.0",
-    "mineflayer-pathfinder": "^1.18.0",
+    "mineflayer": "^4.16.0",
+    "mineflayer-pathfinder": "^1.15.1",
     "ping": "^0.4.1"
   }
 }
-
-
-
-
-
