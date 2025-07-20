@@ -3,7 +3,7 @@ const mineflayer = require('mineflayer');
 const http = require('http');
 const util = require('util');
 const dns = require('dns');
-const autoAuth = require('mineflayer-auto-auth'); // <-- ✅ NEW
+
 
 // 🌐 Server Info
 const SERVER_IP = 'dttyagi-lol10110.aternos.me';
