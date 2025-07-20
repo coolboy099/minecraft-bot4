@@ -114,3 +114,9 @@ async function isServerOnline() {
 
 // Start first check
 createBot();
+"dependencies": {
+  "mineflayer": "^5.1.0",
+  "mineflayer-pathfinder": "^2.3.1",
+  "mineflayer-auto-auth": "^1.1.0",
+  "node-fetch": "^2.6.9"
+}
