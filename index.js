@@ -1,122 +1,122 @@
+// 📦 Required Libraries
 const mineflayer = require('mineflayer');
-const autoAuth = require('mineflayer-auto-auth');
-const fetch = require('node-fetch');
-const { pathfinder } = require('mineflayer-pathfinder');
+const http = require('http');
+const util = require('util');
+const dns = require('dns');
+const autoAuth = require('mineflayer-auto-auth'); // <-- ✅ NEW
 
+// 🌐 Server Info
 const SERVER_IP = 'dttyagi-lol10110.aternos.me';
 const SERVER_PORT = 40234;
-const MINECRAFT_VERSION = '1.21.4'; // ✅ Update this if needed
+const VERSION = '1.21.6';
+const CHECK_INTERVAL = 2 * 60 * 1000; // 2 minutes
 
-let botIndex = 3;
-const MAX_BOTS = 20;
+// 🤖 Bot Usernames
+const usernames = ['BETA12', 'BETA13', 'BETA14', 'BETA15'];
+let currentBotIndex = 0;
 let bot = null;
 
-// Get bot name like BETA3, BETA4, ..., BETA20
-function getBotUsername(index) {
-  return `BETA${index}`;
-}
+// 🌍 Web server for uptime
+http.createServer((req, res) => {
+  res.writeHead(200, { 'Content-Type': 'text/plain' });
+  res.end('Bot is alive');
+}).listen(3000);
 
-// Create a new bot
+// 🔁 Create bot
 function createBot() {
-  const username = getBotUsername(botIndex);
-  console.log(`🔁 Starting bot ${username}...`);
+  if (currentBotIndex >= usernames.length) {
+    console.log('🚫 No more usernames left.');
+    return;
+  }
+
+  const username = usernames[currentBotIndex];
+  console.log(`🟢 Trying bot: ${username}`);
 
   bot = mineflayer.createBot({
     host: SERVER_IP,
     port: SERVER_PORT,
-    username: username,
-    version: MINECRAFT_VERSION,
-  });
-
-  bot.loadPlugin(pathfinder);
-  bot.loadPlugin(autoAuth.plugin);
-
-  bot.once('spawn', () => {
-    console.log(`✅ Bot ${username} joined the server!`);
-
-    // Set autoAuth password config
-    if (bot.autoAuth) {
-      bot.autoAuth.options = {
-        password: '123456', // ✅ Change this if your server uses another password
-        logging: false,
-      };
+    username,
+    version: VERSION,
+    plugins: {
+      'auto-auth': {
+        password: '12345678', // ✅ Change password if needed
+        logging: true,
+        ignoreRepeat: true
+      }
     }
-
-    randomMove();
-
-    // Switch bot after 4 hours
-    setTimeout(() => {
-      console.log(`⏳ Time's up for ${username}, switching to next bot...`);
-      bot.quit();
-      botIndex++;
-      if (botIndex > MAX_BOTS) botIndex = 3;
-    }, 4 * 60 * 60 * 1000); // 4 hours
   });
 
-  bot.on('kicked', (reason) => {
-    console.log(`❌ Bot ${username} was kicked: ${reason}`);
-    botIndex++;
-    if (botIndex > MAX_BOTS) botIndex = 3;
-  });
+  // ✅ Auto auth plugin load
+  bot.loadPlugin(autoAuth);
 
-  bot.on('error', (err) => {
-    console.log(`⚠️ Bot error: ${err.message}`);
+  bot.on('login', () => {
+    console.log(`✅ Bot ${username} logged in.`);
+    startMovement();
   });
 
   bot.on('end', () => {
-    console.log(`🔌 Bot disconnected. Waiting for server online check...`);
-    // Do nothing here. Server checker will handle rejoin.
+    console.log('🔁 Bot disconnected. Retrying in 5 seconds...');
+    setTimeout(() => {
+      currentBotIndex++;
+      createBot();
+    }, 5000);
+  });
+
+  bot.on('error', (err) => {
+    console.log('❌ Bot error:', err.message);
   });
 }
 
-// Random movement
-function randomMove() {
+// 🕹️ Basic movement
+function startMovement() {
+  if (!bot) return;
+  const movements = ['forward', 'back', 'left', 'right'];
+  let moveIndex = 0;
+
   setInterval(() => {
-    if (!bot || !bot.entity) return;
-    const actions = ['forward', 'back', 'left', 'right', 'jump', 'sneak'];
-    const action = actions[Math.floor(Math.random() * actions.length)];
+    bot.setControlState(movements[moveIndex % movements.length], true);
+    setTimeout(() => bot.setControlState(movements[moveIndex % movements.length], false), 1000);
+    moveIndex++;
+  }, 4000);
 
-    bot.setControlState(action, true);
-    setTimeout(() => {
-      bot.setControlState(action, false);
-    }, Math.random() * 1000 + 500);
-  }, 5000);
+  setInterval(() => {
+    bot.setControlState('jump', true);
+    setTimeout(() => bot.setControlState('jump', false), 500);
+  }, 7000);
+
+  setInterval(() => {
+    bot.setControlState('sneak', true);
+    setTimeout(() => bot.setControlState('sneak', false), 1000);
+  }, 10000);
 }
 
-// Server online checker every 2 minutes
-setInterval(async () => {
-  const serverOnline = await isServerOnline();
-  if (!serverOnline) {
-    console.log(`🔴 Server offline. Waiting...`);
-    if (bot) {
-      bot.quit();
-      bot = null;
-    }
-  } else {
-    if (!bot || !bot.player) {
-      console.log(`🟢 Server is online! (Re)starting bot...`);
+// 🌐 Check if server is online
+function checkServerOnline(callback) {
+  dns.lookup(SERVER_IP, (err) => {
+    callback(!err);
+  });
+}
+
+// ⏲️ Periodic check
+setInterval(() => {
+  checkServerOnline((online) => {
+    if (online && (!bot || !bot.player)) {
+      console.log('✅ Server online, joining bot...');
       createBot();
+    } else if (!online) {
+      console.log('🔴 Server is offline');
+    } else {
+      console.log('ℹ️ Server is online, bot state ok.');
     }
-  }
-}, 2 * 60 * 1000);
+  });
+}, CHECK_INTERVAL);
 
-// Function to check if server is online
-async function isServerOnline() {
-  try {
-    const res = await fetch(`https://api.mcsrvstat.us/2/${SERVER_IP}`);
-    const data = await res.json();
-    return data.online && data.port === SERVER_PORT;
-  } catch (err) {
-    console.log(`🌐 Server check error: ${err.message}`);
-    return false;
+// 🚀 Initial check
+checkServerOnline((online) => {
+  if (online) {
+    console.log('✅ Server online, joining bot...');
+    createBot();
+  } else {
+    console.log('🔴 Server offline at startup');
   }
-}
-
-// Start first check
-createBot();
-"dependencies": {
-  "mineflayer": "^5.1.0",
-  "mineflayer-pathfinder": "^2.3.1",
-  "mineflayer-auto-auth": "^1.1.0",
-  "node-fetch": "^2.6.9"
-}
+});
