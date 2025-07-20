@@ -1,14 +1,14 @@
 {
   "name": "minecraft-bot",
   "version": "1.0.0",
-  "description": "Minecraft bot with auto reconnect, random movement, and auto auth (login/register)",
+  "description": "Minecraft bot with auto reconnect, random movement, and auto auth",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
     "mineflayer": "^4.19.1",
-    "mineflayer-auto-auth": "^1.1.0"
+    "mineflayer-auto-auth": "^1.0.5"
   },
   "engines": {
     "node": ">=18.0.0"
@@ -16,3 +16,4 @@
   "author": "coolboy099",
   "license": "MIT"
 }
+
