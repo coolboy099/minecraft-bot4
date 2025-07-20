@@ -15,7 +15,7 @@ function createBot() {
     host: SERVER_IP,
     port: SERVER_PORT,
     username: username,
-    version: "1.21.6"
+    version: "1.21.1"
   });
 
   bot.loadPlugin(pathfinder);
