@@ -107,8 +107,3 @@ function startBotSwitchTimer() {
     connectNextBot();
   }, SWITCH_INTERVAL);
 }
-
-// Start everything
-connectNextBot();
-startMonitor();
-startBotSwitchTimer();
