@@ -1,77 +1,81 @@
-// 📦 Required Libraries
 const mineflayer = require('mineflayer');
-const http = require('http');
-const util = require('util');
-const dns = require('dns');
+const { Client } = require('minecraft-protocol');
+const express = require('express');
+const app = express();
 
-// 🌐 Server Info
-const SERVER_IP = 'dttyagi-lol10110.aternos.me';
+const SERVER_HOST = "dttyagi-lol10110.aternos.me";
 const SERVER_PORT = 40234;
-const VERSION = '1.21.1';
-const CHECK_INTERVAL = 2 * 60 * 1000; // 2 minutes
 
-// 🤖 Bot Usernames
-const usernames = ['BETA12', 'BETA13', 'BETA14', 'BETA15', 'BETA16'];
-let currentBotIndex = 0;
-let bot = null;
+const START_BOT_INDEX = 12; // BETA12 se start
+const MAX_BOT_INDEX = 20;
 
-// 🌍 Web server for uptime
-http.createServer((req, res) => {
-  res.writeHead(200, { 'Content-Type': 'text/plain' });
-  res.end('Bot is alive');
-}).listen(3000);
+let currentBot = null;
+let currentIndex = START_BOT_INDEX;
+let reconnectTimer = null;
 
-// 🔁 Create bot
-function createBot() {
-  if (currentBotIndex >= usernames.length) {
-    console.log('🚫 No more usernames left.');
-    return;
-  }
+function createBot(botName) {
+  console.log(`🟢 Trying bot: ${botName}`);
 
-  const username = usernames[currentBotIndex];
-  console.log(`🟢 Trying bot: ${username}`);
-
-  bot = mineflayer.createBot({
-    host: SERVER_IP,
+  const bot = mineflayer.createBot({
+    host: SERVER_HOST,
     port: SERVER_PORT,
-    username,
-    version: VERSION
+    username: botName,
+    version: "1.21.1"
   });
 
-  bot.on('login', () => {
-    console.log(`✅ Bot ${username} logged in.`);
-
-    // 🔐 Auto register & login
-    bot.once('spawn', () => {
-      bot.chat('/register 123456 123456');
-      setTimeout(() => {
-        bot.chat('/login 123456');
-      }, 3000);
-    });
-
-    startMovement();
+  bot.once('login', () => {
+    console.log(`✅ Bot ${botName} logged in.`);
+    currentBot = bot;
+    setupBot(bot);
   });
 
   bot.on('end', () => {
-    console.log('🔁 Bot disconnected. Retrying in 5 seconds...');
-    setTimeout(() => {
-      currentBotIndex++;
-      createBot();
-    }, 5000);
+    console.log("🔁 Bot disconnected. Retrying in 5 seconds...");
+    currentBot = null;
+    setTimeout(connectNextBot, 5000);
   });
 
   bot.on('error', (err) => {
-    console.log('❌ Bot error:', err.message);
+    console.log("❌ Bot error:", err.message);
   });
 }
 
-// 🕹️ Basic movement
-function startMovement() {
-  if (!bot) return;
+function connectNextBot() {
+  currentIndex++;
+  if (currentIndex > MAX_BOT_INDEX) {
+    console.log("🚫 No more usernames left.");
+    return;
+  }
+  const nextName = `BETA${currentIndex}`;
+  createBot(nextName);
+}
+
+function setupBot(bot) {
+  // Auto register/login
+  bot.once('spawn', () => {
+    setTimeout(() => bot.chat('/register 123456 123456'), 2000);
+    setTimeout(() => bot.chat('/login 123456'), 4000);
+    setTimeout(() => startMovement(bot), 7000);
+    setAutoRespawn(bot);
+  });
+
+  // Auto switch bot after 4 hours
+  setTimeout(() => {
+    const nextName = `BETA${currentIndex + 1}`;
+    console.log(`⏰ 4 hours passed. Switching to ${nextName}`);
+    createBot(nextName);
+    if (currentBot) currentBot.quit();
+  }, 4 * 60 * 60 * 1000);
+}
+
+function startMovement(bot) {
+  if (!bot || !bot.entity) return;
+
   const movements = ['forward', 'back', 'left', 'right'];
   let moveIndex = 0;
 
   setInterval(() => {
+    if (!bot.entity) return;
     const dir = movements[moveIndex % movements.length];
     bot.setControlState(dir, true);
     setTimeout(() => bot.setControlState(dir, false), 1000);
@@ -79,44 +83,52 @@ function startMovement() {
   }, 4000);
 
   setInterval(() => {
+    if (!bot.entity) return;
     bot.setControlState('jump', true);
     setTimeout(() => bot.setControlState('jump', false), 500);
-  }, 7000);
+  }, 8000);
 
   setInterval(() => {
+    if (!bot.entity) return;
     bot.setControlState('sneak', true);
     setTimeout(() => bot.setControlState('sneak', false), 1000);
-  }, 10000);
+  }, 12000);
 }
 
-// 🌐 Check if server is online
-function checkServerOnline(callback) {
-  dns.lookup(SERVER_IP, (err) => {
-    callback(!err);
+function setAutoRespawn(bot) {
+  bot.on('death', () => {
+    setTimeout(() => bot.emit('respawn'), 2000);
   });
 }
 
-// ⏲️ Periodic check
+// Server check every 2 min
 setInterval(() => {
-  checkServerOnline((online) => {
-    if (online && (!bot || !bot.player)) {
-      console.log('✅ Server online, joining bot...');
-      createBot();
-    } else if (!online) {
-      console.log('🔴 Server is offline');
-    } else {
-      console.log('ℹ️ Server is online, bot state ok.');
-    }
+  const client = Client({
+    host: SERVER_HOST,
+    port: SERVER_PORT,
+    username: 'PingChecker',
+    version: '1.21.6'
   });
-}, CHECK_INTERVAL);
 
-// 🚀 Initial check
-checkServerOnline((online) => {
-  if (online) {
-    console.log('✅ Server online, joining bot...');
-    createBot();
-  } else {
-    console.log('🔴 Server offline at startup');
-  }
+  client.on('connect', () => {
+    console.log("ℹ️ Server is online, bot state ok.");
+    client.end();
+  });
+
+  client.on('error', () => {
+    console.log("⚠️ Server offline or not responding.");
+  });
+}, 2 * 60 * 1000);
+
+// Web server for Render ping
+app.get("/", (req, res) => {
+  res.send("✅ Bot is running!");
 });
+app.listen(3000, () => {
+  console.log("🌐 Web server running on port 3000");
+});
+
+// Start first bot
+createBot(`BETA${currentIndex}`);
+
 
