@@ -130,5 +130,10 @@ app.listen(3000, () => {
 
 // Start first bot
 createBot(`BETA${currentIndex}`);
+"dependencies": {
+  "express": "^4.18.2",
+  "mineflayer": "^4.16.0",
+  "minecraft-protocol": "^1.33.0"
+}
 
 
