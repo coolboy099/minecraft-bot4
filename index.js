@@ -5,7 +5,7 @@ const app = express();
 
 const SERVER_IP = 'dttyagi-lol10110.aternos.me';
 const SERVER_PORT = 40234;
-const VERSION = '1.21.6';
+const VERSION = '1.21.1';
 const BOT_PREFIX = 'BETA';
 const BOT_START = 3;
 const BOT_END = 20;
