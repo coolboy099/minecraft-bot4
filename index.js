@@ -8,7 +8,7 @@ const dns = require('dns');
 // 🌐 Server Info
 const SERVER_IP = 'dttyagi-lol10110.aternos.me';
 const SERVER_PORT = 40234;
-const VERSION = '1.21.6';
+const VERSION = '1.21.1';
 const CHECK_INTERVAL = 2 * 60 * 1000; // 2 minutes
 
 // 🤖 Bot Usernames
