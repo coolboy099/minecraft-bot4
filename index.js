@@ -5,16 +5,18 @@ const { pathfinder } = require('mineflayer-pathfinder');
 
 const SERVER_IP = 'dttyagi-lol10110.aternos.me';
 const SERVER_PORT = 40234;
-const MINECRAFT_VERSION = '1.21.4'; // ✅ change to match your Aternos version
+const MINECRAFT_VERSION = '1.21.4'; // ✅ Update this if needed
 
 let botIndex = 3;
 const MAX_BOTS = 20;
-let bot;
+let bot = null;
 
+// Get bot name like BETA3, BETA4, ..., BETA20
 function getBotUsername(index) {
   return `BETA${index}`;
 }
 
+// Create a new bot
 function createBot() {
   const username = getBotUsername(botIndex);
   console.log(`🔁 Starting bot ${username}...`);
@@ -27,20 +29,27 @@ function createBot() {
   });
 
   bot.loadPlugin(pathfinder);
-  bot.loadPlugin(autoAuth);
+  bot.loadPlugin(autoAuth.plugin);
 
   bot.once('spawn', () => {
     console.log(`✅ Bot ${username} joined the server!`);
 
+    // Set autoAuth password config
+    if (bot.autoAuth) {
+      bot.autoAuth.options = {
+        password: '123456', // ✅ Change this if your server uses another password
+        logging: false,
+      };
+    }
+
     randomMove();
 
-    // Switch bot every 4 hours
+    // Switch bot after 4 hours
     setTimeout(() => {
-      console.log(`⏳ Time's up for ${username}, switching bot...`);
+      console.log(`⏳ Time's up for ${username}, switching to next bot...`);
       bot.quit();
       botIndex++;
       if (botIndex > MAX_BOTS) botIndex = 3;
-      createBot();
     }, 4 * 60 * 60 * 1000); // 4 hours
   });
 
@@ -48,7 +57,6 @@ function createBot() {
     console.log(`❌ Bot ${username} was kicked: ${reason}`);
     botIndex++;
     if (botIndex > MAX_BOTS) botIndex = 3;
-    createBot();
   });
 
   bot.on('error', (err) => {
@@ -56,14 +64,12 @@ function createBot() {
   });
 
   bot.on('end', () => {
-    console.log(`🔌 Bot disconnected. Reconnecting in 10s...`);
-    setTimeout(() => {
-      createBot();
-    }, 10000);
+    console.log(`🔌 Bot disconnected. Waiting for server online check...`);
+    // Do nothing here. Server checker will handle rejoin.
   });
 }
 
-// 🔄 Random movement
+// Random movement
 function randomMove() {
   setInterval(() => {
     if (!bot || !bot.entity) return;
@@ -77,20 +83,24 @@ function randomMove() {
   }, 5000);
 }
 
-// 🌐 Check if server is online every 2 minutes
+// Server online checker every 2 minutes
 setInterval(async () => {
   const serverOnline = await isServerOnline();
   if (!serverOnline) {
     console.log(`🔴 Server offline. Waiting...`);
-    if (bot) bot.quit();
+    if (bot) {
+      bot.quit();
+      bot = null;
+    }
   } else {
     if (!bot || !bot.player) {
-      console.log(`🟢 Server is online! (re)starting bot...`);
+      console.log(`🟢 Server is online! (Re)starting bot...`);
       createBot();
     }
   }
 }, 2 * 60 * 1000);
 
+// Function to check if server is online
 async function isServerOnline() {
   try {
     const res = await fetch(`https://api.mcsrvstat.us/2/${SERVER_IP}`);
@@ -102,5 +112,5 @@ async function isServerOnline() {
   }
 }
 
-// 🔰 Start first bot
+// Start first check
 createBot();
