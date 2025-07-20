@@ -4,7 +4,6 @@ const http = require('http');
 const util = require('util');
 const dns = require('dns');
 
-
 // 🌐 Server Info
 const SERVER_IP = 'dttyagi-lol10110.aternos.me';
 const SERVER_PORT = 40234;
@@ -12,7 +11,7 @@ const VERSION = '1.21.1';
 const CHECK_INTERVAL = 2 * 60 * 1000; // 2 minutes
 
 // 🤖 Bot Usernames
-const usernames = ['BETA12', 'BETA13', 'BETA14', 'BETA15'];
+const usernames = ['BETA12', 'BETA13', 'BETA14', 'BETA15', 'BETA16'];
 let currentBotIndex = 0;
 let bot = null;
 
@@ -36,21 +35,20 @@ function createBot() {
     host: SERVER_IP,
     port: SERVER_PORT,
     username,
-    version: VERSION,
-    plugins: {
-      'auto-auth': {
-        password: '12345678', // ✅ Change password if needed
-        logging: true,
-        ignoreRepeat: true
-      }
-    }
+    version: VERSION
   });
-
-  // ✅ Auto auth plugin load
-  bot.loadPlugin(autoAuth);
 
   bot.on('login', () => {
     console.log(`✅ Bot ${username} logged in.`);
+
+    // 🔐 Auto register & login
+    bot.once('spawn', () => {
+      bot.chat('/register 123456 123456');
+      setTimeout(() => {
+        bot.chat('/login 123456');
+      }, 3000);
+    });
+
     startMovement();
   });
 
@@ -74,8 +72,9 @@ function startMovement() {
   let moveIndex = 0;
 
   setInterval(() => {
-    bot.setControlState(movements[moveIndex % movements.length], true);
-    setTimeout(() => bot.setControlState(movements[moveIndex % movements.length], false), 1000);
+    const dir = movements[moveIndex % movements.length];
+    bot.setControlState(dir, true);
+    setTimeout(() => bot.setControlState(dir, false), 1000);
     moveIndex++;
   }, 4000);
 
@@ -120,3 +119,4 @@ checkServerOnline((online) => {
     console.log('🔴 Server offline at startup');
   }
 });
+
