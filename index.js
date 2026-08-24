@@ -32,7 +32,7 @@ app.listen(PORT, "0.0.0.0", () => {
 // =========================
 
 const SERVER = {
-  host: "Players-K8CW.aternos.me",
+  host: "dttyagi.aternos.me",
   port: 20822
 };
 
