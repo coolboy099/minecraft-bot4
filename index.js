@@ -1,11 +1,11 @@
 const express = require("express");
 const mineflayer = require("mineflayer");
-const { pathfinder, Movements, goals } =
-  require("mineflayer-pathfinder");
+const { pathfinder, Movements } = require("mineflayer-pathfinder");
+const minecraftData = require("minecraft-data");
 
-// =========================
+// =====================================================
 // RENDER WEB SERVER
-// =========================
+// =====================================================
 
 const app = express();
 const PORT = process.env.PORT || 10000;
@@ -17,26 +17,29 @@ app.get("/", (req, res) => {
 app.get("/health", (req, res) => {
   res.status(200).json({
     status: "online",
-    bot: bot?.entity ? "connected" : "disconnected",
+    bot: bot && bot.entity ? "connected" : "disconnected",
     currentBot: BOT_NAMES[currentBot],
     uptime: Math.floor(process.uptime())
   });
 });
 
 app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Web server listening on ${PORT}`);
+  console.log(`Web server running on port ${PORT}`);
 });
 
-// =========================
-// MINECRAFT CONFIG
-// =========================
+// =====================================================
+// MINECRAFT SERVER
+// =====================================================
 
 const SERVER = {
   host: "dttyagi.aternos.me",
   port: 20822
 };
 
-// Your own bot accounts
+// =====================================================
+// BOT NAMES
+// =====================================================
+
 const BOT_NAMES = [
   "betag1",
   "betag2",
@@ -45,46 +48,47 @@ const BOT_NAMES = [
   "betag5"
 ];
 
-// =========================
-// TIMING
-// =========================
+// =====================================================
+// TIMINGS
+// =====================================================
 
-const RECONNECT_DELAY = 60 * 1000;       // 1 minute
-const BOT_ROTATION = 5 * 60 * 60 * 1000; // 5 hours
-const CHAT_INTERVAL = 2 * 60 * 1000;    // 2 minutes
-const BREAK_INTERVAL = 5 * 60 * 1000;   // 5 minutes
+const RECONNECT_DELAY = 60 * 1000;
+const BOT_ROTATION = 5 * 60 * 60 * 1000;
+const CHAT_INTERVAL = 2 * 60 * 1000;
+const BREAK_INTERVAL = 5 * 60 * 1000;
 
-// =========================
+// =====================================================
 // VARIABLES
-// =========================
+// =====================================================
 
 let bot = null;
 let currentBot = 0;
 
 let movementTimer = null;
+let movementTimeout = null;
+
 let chatTimer = null;
 let breakTimer = null;
+
 let rotationTimer = null;
 let reconnectTimer = null;
 
-let movementTimeout = null;
-
-// =========================
+// =====================================================
 // CHAT MESSAGES
-// =========================
+// =====================================================
 
 const messages = [
   "Hello I am bot",
   "Made by divyansh daddy",
   "Arey u doing fun?",
-  "I am just chilling here 😎",
-  "Minecraft life OP hai 😂",
+  "I am just chilling here",
+  "Minecraft life OP hai",
   "Kya scene hai bro?"
 ];
 
-// =========================
+// =====================================================
 // START BOT
-// =========================
+// =====================================================
 
 function startBot() {
 
@@ -92,74 +96,110 @@ function startBot() {
 
   const username = BOT_NAMES[currentBot];
 
-  console.log("--------------------------------");
-  console.log(`Starting bot: ${username}`);
-  console.log("--------------------------------");
+  console.log("");
+  console.log("================================");
+  console.log(`Starting: ${username}`);
+  console.log(`Server: ${SERVER.host}:${SERVER.port}`);
+  console.log("================================");
 
   bot = mineflayer.createBot({
+
     host: SERVER.host,
     port: SERVER.port,
-    username: username
+
+    username: username,
+
+    // IMPORTANT:
+    // Use this ONLY if your Paper server is offline-mode.
+    auth: "offline",
+
+    // Let Mineflayer detect server version.
+    version: false
   });
 
   bot.loadPlugin(pathfinder);
 
-  // =========================
+  // ===================================================
   // SPAWN
-  // =========================
+  // ===================================================
 
   bot.once("spawn", () => {
 
-    console.log(`${username} joined the server!`);
+    console.log(`${username} joined successfully!`);
 
-    const mcData = require("minecraft-data")(bot.version);
+    try {
 
-    const movements = new Movements(
-      bot,
-      mcData
-    );
+      const mcData = minecraftData(bot.version);
 
-    bot.pathfinder.setMovements(movements);
+      const movements =
+        new Movements(bot, mcData);
+
+      bot.pathfinder.setMovements(movements);
+
+    } catch (error) {
+
+      console.log(
+        "Movement setup error:",
+        error.message
+      );
+
+    }
 
     startRandomMovement();
     startChat();
     startBlockBreaking();
 
-    // Rotate after 5 hours
+    // Rotate after 5 hours.
     rotationTimer = setTimeout(() => {
+
       rotateBot();
+
     }, BOT_ROTATION);
 
   });
 
-  // =========================
+  // ===================================================
   // DEATH
-  // =========================
+  // ===================================================
 
   bot.on("death", () => {
 
     console.log(`${username} died.`);
 
-    // Minecraft normally respawns automatically.
+    // Try respawn after a short delay.
     setTimeout(() => {
 
-      if (bot && bot.isAlive === false) {
-        try {
-          bot.respawn();
-        } catch {}
+      if (!bot) return;
+
+      try {
+
+        bot.respawn();
+
+        console.log(
+          `${username} respawn requested.`
+        );
+
+      } catch (error) {
+
+        console.log(
+          "Respawn error:",
+          error.message
+        );
+
       }
 
-    }, 1000);
+    }, 1500);
 
   });
 
-  // =========================
+  // ===================================================
   // KICK
-  // =========================
+  // ===================================================
 
   bot.on("kicked", reason => {
 
-    console.log("Bot kicked:", reason);
+    console.log("BOT KICKED:");
+    console.log(reason);
 
     cleanup();
 
@@ -167,13 +207,16 @@ function startBot() {
 
   });
 
-  // =========================
-  // DISCONNECT
-  // =========================
+  // ===================================================
+  // END / DISCONNECT
+  // ===================================================
 
   bot.on("end", reason => {
 
-    console.log("Connection ended:", reason);
+    console.log(
+      "Connection ended:",
+      reason
+    );
 
     cleanup();
 
@@ -181,13 +224,16 @@ function startBot() {
 
   });
 
-  // =========================
+  // ===================================================
   // ERROR
-  // =========================
+  // ===================================================
 
-  bot.on("error", err => {
+  bot.on("error", error => {
 
-    console.log("Bot error:", err.message);
+    console.log(
+      "Minecraft error:",
+      error.message
+    );
 
   });
 
@@ -208,10 +254,8 @@ function startRandomMovement() {
       return;
     }
 
-    // Clear old controls
     bot.clearControlStates();
 
-    // Random direction
     const directions = [
       "forward",
       "back",
@@ -220,14 +264,16 @@ function startRandomMovement() {
     ];
 
     const direction =
-      directions[random(0, directions.length - 1)];
+      directions[random(
+        0,
+        directions.length - 1
+      )];
 
-    // Random duration
     const duration =
       random(1000, 6000);
 
     console.log(
-      `Movement: ${direction} for ${duration}ms`
+      `Moving ${direction} for ${duration}ms`
     );
 
     bot.setControlState(
@@ -240,17 +286,27 @@ function startRandomMovement() {
 
       setTimeout(() => {
 
-        if (bot && bot.entity) {
-          bot.setControlState("jump", true);
-
-          setTimeout(() => {
-
-            if (bot && bot.entity) {
-              bot.setControlState("jump", false);
-            }
-
-          }, 400);
+        if (!bot || !bot.entity) {
+          return;
         }
+
+        bot.setControlState(
+          "jump",
+          true
+        );
+
+        setTimeout(() => {
+
+          if (!bot || !bot.entity) {
+            return;
+          }
+
+          bot.setControlState(
+            "jump",
+            false
+          );
+
+        }, 300);
 
       }, random(300, 2000));
 
@@ -259,19 +315,26 @@ function startRandomMovement() {
     // Random sneak
     if (Math.random() < 0.25) {
 
-      bot.setControlState("sneak", true);
+      bot.setControlState(
+        "sneak",
+        true
+      );
 
       setTimeout(() => {
 
-        if (bot && bot.entity) {
-          bot.setControlState("sneak", false);
+        if (!bot || !bot.entity) {
+          return;
         }
+
+        bot.setControlState(
+          "sneak",
+          false
+        );
 
       }, random(1000, 4000));
 
     }
 
-    // Stop current movement
     movementTimeout = setTimeout(() => {
 
       if (!bot || !bot.entity) {
@@ -280,12 +343,9 @@ function startRandomMovement() {
 
       bot.clearControlStates();
 
-      // Wait before next movement
-      setTimeout(() => {
+      movementTimer = setTimeout(() => {
 
-        if (bot && bot.entity) {
-          randomMove();
-        }
+        randomMove();
 
       }, random(500, 3000));
 
@@ -315,9 +375,13 @@ function startChat() {
 
     let index;
 
-    // Avoid repeating same message
     do {
-      index = random(0, messages.length - 1);
+
+      index = random(
+        0,
+        messages.length - 1
+      );
+
     } while (
       index === lastMessage &&
       messages.length > 1
@@ -325,11 +389,25 @@ function startChat() {
 
     lastMessage = index;
 
-    const message = messages[index];
+    const message =
+      messages[index];
 
-    console.log(`CHAT: ${message}`);
+    console.log(
+      `CHAT: ${message}`
+    );
 
-    bot.chat(message);
+    try {
+
+      bot.chat(message);
+
+    } catch (error) {
+
+      console.log(
+        "Chat error:",
+        error.message
+      );
+
+    }
 
   }, CHAT_INTERVAL);
 
@@ -337,7 +415,7 @@ function startChat() {
 
 
 // =====================================================
-// BREAK BLOCK EVERY 5 MIN
+// BREAK BLOCK EVERY 5 MINUTES
 // =====================================================
 
 function startBlockBreaking() {
@@ -356,7 +434,9 @@ function startBlockBreaking() {
 
         matching: block => {
 
-          if (!block) return false;
+          if (!block) {
+            return false;
+          }
 
           return (
             block.name !== "air" &&
@@ -383,7 +463,7 @@ function startBlockBreaking() {
       }
 
       console.log(
-        `Breaking block: ${block.name}`
+        `Breaking: ${block.name}`
       );
 
       await bot.lookAt(
@@ -419,7 +499,7 @@ function startBlockBreaking() {
 
 
 // =====================================================
-// 5-HOUR BOT ROTATION
+// 5-HOUR ROTATION
 // =====================================================
 
 function rotateBot() {
@@ -437,7 +517,7 @@ function rotateBot() {
       bot.clearControlStates();
 
       bot.quit(
-        "Scheduled bot rotation"
+        "Scheduled rotation"
       );
 
     } catch {}
@@ -448,8 +528,12 @@ function rotateBot() {
 
   currentBot++;
 
-  if (currentBot >= BOT_NAMES.length) {
+  if (
+    currentBot >= BOT_NAMES.length
+  ) {
+
     currentBot = 0;
+
   }
 
   console.log(
@@ -529,10 +613,22 @@ function stopMovement() {
 
   }
 
+  if (movementTimer) {
+
+    clearTimeout(
+      movementTimer
+    );
+
+    movementTimer = null;
+
+  }
+
   if (bot) {
 
     try {
+
       bot.clearControlStates();
+
     } catch {}
 
   }
@@ -560,7 +656,7 @@ function stopChat() {
 
 
 // =====================================================
-// STOP BLOCK BREAKING
+// STOP BREAKING
 // =====================================================
 
 function stopBreaking() {
@@ -605,7 +701,7 @@ function random(min, max) {
 
   return Math.floor(
     Math.random() *
-    (max - min + 1)
+      (max - min + 1)
   ) + min;
 
 }
